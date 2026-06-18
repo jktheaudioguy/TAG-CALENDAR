@@ -340,9 +340,9 @@ async function loadData(){
 
 function render(){
   updateStats();
-  renderFilters();
   renderTable();
   updateClashBadge();
+  if(isMobile()) renderMobile();
 }
 
 function updateStats(){
@@ -358,7 +358,15 @@ function renderFilters(){
     var c=document.createElement('button');
     c.className='chip'+(activeFilter===b?' on':'');
     c.textContent=b==='All'?'All':(BI[b]&&BI[b].label?BI[b].label:b);
-    c.onclick=function(){activeFilter=b;renderTable();};
+    c.onclick=function(){
+      activeFilter=b;
+      // Update chip styles without recreating them
+      document.querySelectorAll('.chip').forEach(function(ch){ ch.classList.remove('on'); });
+      c.classList.add('on');
+      renderTable();
+      updateClashBadge();
+      if(isMobile()) renderMobile();
+    };
     f.appendChild(c);
   });
 }
@@ -640,12 +648,7 @@ function renderMobile() {
   }
 }
 
-// Override render to also update mobile
-var _origRender = render;
-function render() {
-  _origRender();
-  if (isMobile()) renderMobile();
-}
+// Mobile render called directly after data loads
 
 // Swipe support for mobile
 (function() {
