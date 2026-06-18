@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TAG Class Scheduler</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0e0e0c;--sur:#1a1916;--sur2:#242420;--sur3:#2e2e28;
+  --bor:#3a3a32;--bor2:#4a4a40;
+  --tx:#f0efe8;--tx2:#a8a79e;--tx3:#6a6960;
+  --acc:#c8f050;--red:#ff5a4a;--amb:#f0a020;--grn:#50c878;
+  --font:system-ui,-apple-system,sans-serif;--rad:6px;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--tx);min-height:100vh;font-size:13px;}
+.topbar{background:var(--sur);border-bottom:1px solid var(--bor);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:50;}
+.brand{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;}
+.brand-pill{background:var(--acc);color:#0e0e0c;border-radius:4px;padding:3px 7px;font-size:11px;font-weight:700;letter-spacing:0.06em;}
+.sync{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx3);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--tx3);flex-shrink:0;}
+.dot.ok{background:var(--grn);}.dot.syn{background:var(--amb);animation:pulse 1s infinite;}.dot.err{background:var(--red);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.btn{font-size:12px;font-weight:500;padding:6px 12px;border-radius:var(--rad);border:1px solid var(--bor);background:var(--sur2);color:var(--tx);cursor:pointer;}
+.btn:hover{background:var(--sur3);}
+.btn-acc{background:var(--acc);color:#0e0e0c;border-color:var(--acc);font-weight:700;}
+.app{display:grid;grid-template-columns:260px 1fr;height:calc(100vh - 52px);}
+.side{background:var(--sur);border-right:1px solid var(--bor);overflow-y:auto;padding:1rem;}
+.main{overflow-y:auto;padding:1.25rem 1.5rem;}
+.slabel{font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--tx3);text-transform:uppercase;margin-bottom:8px;margin-top:1rem;}
+.slabel:first-child{margin-top:0;}
+.stat{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;color:var(--tx2);}
+.stat b{font-size:14px;font-weight:600;color:var(--tx);}
+.fgrp{margin-bottom:10px;}
+.fgrp label{font-size:11px;font-weight:500;color:var(--tx2);display:block;margin-bottom:4px;}
+.fgrp select,.fgrp input{width:100%;font-size:12px;padding:7px 9px;border:1px solid var(--bor);border-radius:var(--rad);background:var(--sur2);color:var(--tx);outline:none;font-family:var(--font);}
+.fgrp select:focus,.fgrp input:focus{border-color:var(--acc);}
+.clash-info{font-size:11px;padding:6px 9px;border-radius:var(--rad);margin-bottom:8px;display:none;}
+.clash-info.ok{display:block;background:rgba(80,200,120,.1);color:var(--grn);border:1px solid rgba(80,200,120,.2);}
+.clash-info.warn{display:block;background:rgba(255,90,74,.1);color:var(--red);border:1px solid rgba(255,90,74,.2);}
+.week-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;}
+.week-title{font-size:17px;font-weight:600;letter-spacing:-.02em;}
+.week-sub{font-size:12px;color:var(--tx3);margin-top:1px;}
+.filters{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:1rem;}
+.chip{font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px;border:1px solid var(--bor);background:transparent;color:var(--tx2);cursor:pointer;}
+.chip:hover{color:var(--tx);border-color:var(--bor2);}
+.chip.on{background:var(--acc);color:#0e0e0c;border-color:var(--acc);}
+.tbl{width:100%;border-collapse:collapse;table-layout:fixed;}
+.tbl th{font-size:11px;font-weight:600;color:var(--tx2);padding:8px 6px;text-align:center;border-bottom:2px solid var(--bor2);background:var(--sur);width:14.28%;}
+.tbl th.today-h{color:var(--acc);}
+.tbl td{vertical-align:top;padding:4px;border:1px solid var(--bor);}
+.slot-head td{background:var(--sur2);font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--tx2);text-transform:uppercase;padding:6px 8px;border-top:2px solid var(--bor2);}
+.empty-cell{height:40px;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:13px;}
+.holiday-cell{background:rgba(240,160,32,.08);text-align:center;padding:8px;font-size:11px;color:var(--amb);font-weight:600;}
+.card{border-radius:5px;padding:6px 8px;margin-bottom:4px;cursor:pointer;border-left:3px solid transparent;}
+.card:hover{opacity:.85;}
+.c-batch{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px;}
+.c-topic{font-size:11px;font-weight:500;line-height:1.35;margin-bottom:2px;}
+.c-meta{font-size:10px;opacity:.75;}
+.sc-clash{outline:2px solid var(--red);outline-offset:1px;}
+.bc-s22{background:rgba(200,240,80,.12);border-left-color:#c8f050;}.bc-s22 .c-batch{color:#c8f050;}
+.bc-s23{background:rgba(96,168,240,.12);border-left-color:#60a8f0;}.bc-s23 .c-batch{color:#60a8f0;}
+.bc-s24{background:rgba(80,200,120,.12);border-left-color:#50c878;}.bc-s24 .c-batch{color:#50c878;}
+.bc-s25{background:rgba(200,240,80,.08);border-left-color:#a0c850;}.bc-s25 .c-batch{color:#a0c850;}
+.bc-s26{background:rgba(240,180,80,.12);border-left-color:#f0b450;}.bc-s26 .c-batch{color:#f0b450;}
+.bc-m22{background:rgba(160,120,240,.12);border-left-color:#a878f0;}.bc-m22 .c-batch{color:#a878f0;}
+.bc-m23{background:rgba(240,160,32,.12);border-left-color:#f0a020;}.bc-m23 .c-batch{color:#f0a020;}
+.bc-m24{background:rgba(240,100,100,.12);border-left-color:#f06464;}.bc-m24 .c-batch{color:#f06464;}
+.bc-m25{background:rgba(160,200,240,.12);border-left-color:#a0c8f0;}.bc-m25 .c-batch{color:#a0c8f0;}
+.bc-m26{background:rgba(180,100,240,.12);border-left-color:#b464f0;}.bc-m26 .c-batch{color:#b464f0;}
+.bc-cls{background:rgba(80,220,200,.12);border-left-color:#50dcc8;}.bc-cls .c-batch{color:#50dcc8;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:1rem;}
+.overlay.open{display:flex;}
+.modal{background:var(--sur);border:1px solid var(--bor2);border-radius:10px;width:480px;max-width:100%;max-height:88vh;overflow-y:auto;}
+.mhead{padding:1.25rem 1.5rem 1rem;border-bottom:1px solid var(--bor);display:flex;justify-content:space-between;align-items:flex-start;}
+.mtitle{font-size:15px;font-weight:600;}.msub{font-size:12px;color:var(--tx2);margin-top:2px;}
+.mbody{padding:1.25rem 1.5rem;}.mfoot{padding:1rem 1.5rem;border-top:1px solid var(--bor);display:flex;gap:8px;justify-content:flex-end;}
+.xbtn{background:none;border:none;cursor:pointer;color:var(--tx3);font-size:18px;line-height:1;}
+.dr{display:flex;gap:8px;margin-bottom:10px;}
+.dl{font-size:11px;color:var(--tx3);width:72px;flex-shrink:0;padding-top:1px;}.dv{font-size:13px;color:var(--tx);}
+.clash-warn{margin-top:10px;padding:8px 10px;background:rgba(255,90,74,.1);border:1px solid rgba(255,90,74,.3);border-radius:6px;font-size:12px;color:var(--red);}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--sur3);color:var(--tx);border:1px solid var(--bor2);font-size:12px;padding:9px 14px;border-radius:8px;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;}
+.toast.show{opacity:1;}
+.clash-badge{display:none;background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;}
+.clash-badge.on{display:inline-flex;align-items:center;gap:4px;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="brand-pill">TAG</span> Class Scheduler</div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span class="clash-badge" id="clash-badge">&#9888; <span id="clash-count">0</span> clash</span>
+    <div class="sync"><div class="dot" id="dot"></div><span id="sync-lbl">Connecting...</span></div>
+    <button class="btn btn-acc" onclick="openAdd()">+ Add class</button>
+  </div>
+</div>
+<div class="app">
+  <aside class="side">
+    <div class="slabel">Overview</div>
+    <div class="stat"><span>Total sessions</span><b id="st-total">-</b></div>
+    <div class="stat"><span>Active batches</span><b id="st-batches">-</b></div>
+    <div class="slabel">Add a class</div>
+    <div class="fgrp"><label>Batch</label>
+      <select id="f-batch" onchange="onBatch()">
+        <option value="">Select...</option>
+        <optgroup label="Sound">
+          <option value="s22">Sound 22 (DASE - TTS)</option>
+          <option value="s23">Sound 23 (DSE - MWF)</option>
+          <option value="s24">Sound 24 (DSE - TTS)</option>
+          <option value="s25">Sound 25 (DSE - MWF)</option>
+          <option value="s26">Sound 26 (DSE - TTS)</option>
+        </optgroup>
+        <optgroup label="Music">
+          <option value="m22x">Music 22X (DAMP - TTS 2-5)</option>
+          <option value="m22y">Music 22Y (DAMP - TTS 6-9)</option>
+          <option value="m23x">Music 23X (DMP - MWF 2-5)</option>
+          <option value="m23y">Music 23Y (DMP - MWF 6-9)</option>
+          <option value="m24">Music 24 (DMP - TTS 2-5)</option>
+          <option value="m25">Music 25 (DMP - MWF 2-5)</option>
+          <option value="m26">Music 26 (DMP - TTS 2-5)</option>
+        </optgroup>
+        <optgroup label="Other">
+          <option value="cls08">CLS 08 (MWF 6-9)</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="fgrp"><label>Date</label><input type="date" id="f-date" onchange="chkClash()"/></div>
+    <div class="fgrp"><label>Time slot</label>
+      <select id="f-time" onchange="chkClash()">
+        <option value="9-12">9:00 AM - 12:00 PM</option>
+        <option value="2-5">2:00 PM - 5:00 PM</option>
+        <option value="6-9">6:00 PM - 9:00 PM</option>
+      </select>
+    </div>
+    <div class="fgrp"><label>Topic</label><input type="text" id="f-topic" placeholder="Session topic"/></div>
+    <div class="fgrp"><label>Faculty</label>
+      <select id="f-fac" onchange="chkClash()">
+        <option value="">Select...</option>
+        <option>Bhomik</option><option>Kevin</option><option>Pritish</option><option>Anupam</option>
+        <option>Siddharth</option><option>Rohan</option><option>Jash</option><option>Niranjan</option>
+        <option>Ankit</option><option>Mujeeb</option><option>Reniel</option><option>Steve</option>
+        <option>Brij</option><option>Pragyan</option><option>Omkar</option><option>Shantanu</option>
+        <option>Ashwin</option><option>JK</option><option>Unsupervised</option>
+      </select>
+    </div>
+    <div class="fgrp"><label>Room</label>
+      <select id="f-room" onchange="chkClash()">
+        <option value="">Select...</option>
+        <option>Studio A</option><option>Studio B</option><option>Studio C</option>
+        <option>Studio D</option><option>Studio E</option><option>Production Lab</option>
+        <option>Classroom</option><option>Venue</option><option>Outdoor</option><option>HSNC</option>
+      </select>
+    </div>
+    <div class="clash-info" id="clash-info"></div>
+    <button class="btn btn-acc" style="width:100%;margin-bottom:6px;" onclick="addSess()">Save to schedule</button>
+    <button class="btn" style="width:100%;" onclick="loadData()">Refresh from Sheets</button>
+  </aside>
+  <main class="main">
+    <div class="week-nav">
+      <div><div class="week-title" id="week-title">September 2026</div><div class="week-sub" id="week-sub"></div></div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn" onclick="prevWeek()">Prev</button>
+        <button class="btn" onclick="nextWeek()">Next</button>
+      </div>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div style="overflow-x:auto;"><table class="tbl" id="tbl"></table></div>
+  </main>
+</div>
+<div class="overlay" id="modal">
+  <div class="modal">
+    <div class="mhead"><div><div class="mtitle" id="dm-title">-</div><div class="msub" id="dm-sub">-</div></div><button class="xbtn" onclick="closeMod()">x</button></div>
+    <div class="mbody" id="dm-body"></div>
+    <div class="mfoot">
+      <button class="btn" style="background:rgba(255,90,74,.15);color:var(--red);border-color:rgba(255,90,74,.3);" onclick="delSess()">Delete</button>
+      <button class="btn" onclick="closeMod()">Close</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const API='https://script.google.com/macros/s/AKfycbwThR691zKvzXn_LWgAjqCSnPTaGd5BaLnQT6dVbN1OgMQRqr6ahXzV1nSoo53tkpZM/exec';
+const SEP_DATA=[{"id": 1726000000000, "batch": "s22", "batchLabel": "Sound 22", "date": "2026-09-01", "time": "9-12", "topic": "Film Session Workflow I", "faculty": "Omkar", "room": "Studio B", "notes": "", "color": "bc-s22"}, {"id": 1726000001000, "batch": "s22", "batchLabel": "Sound 22", "date": "2026-09-03", "time": "9-12", "topic": "Film Session Workflow II", "faculty": "Omkar", "room": "Studio B", "notes": "", "color": "bc-s22"}, {"id": 1726000002000, "batch": "s22", "batchLabel": "Sound 22", "date": "2026-09-05", "time": "9-12", "topic": "Advanced Eucon Workflows", "faculty": "Omkar", "room": "Studio B", "notes": "", "color": "bc-s22"}, {"id": 1726000003000, "batch": "s22", "batchLabel": "Sound 22", "date": "2026-09-08", "time": "9-12", "topic": "Film Premix I", "faculty": "Omkar", "room": "Studio B", "notes": "", "color": "bc-s22"}, {"id": 1726000004000, "batch": "s22", "batchLabel": "Sound 22", "date": "2026-09-10", "time": "9-12", "topic": "Film Premix II", "faculty": "Omkar", "room": "Studio B", "notes": "", "color": "bc-s22"}, {"id": 1726000005000, "batch": "s22", "batchLabel": "Sound 22", "date": "2026-09-12", "time": "9-12", "topic": "Cinema and Broadcast Media Deliverables", "faculty": "Omkar", "room": "Studio B", "notes": "", "color": "bc-s22"}, {"id": 1726000006000, "batch": "s22", "batchLabel": "Sound 22", "date": "2026-09-15", "time": "9-12", "topic": "Game Audio 1 (9-4)", "faculty": "Sushant", "room": "Studio B", "notes": "", "color": "bc-s22"}, {"id": 1726000007000, "batch": "s22", "batchLabel": "Sound 22", "date": "2026-09-17", "time": "9-12", "topic": "Game Audio 2 (9-4)", "faculty": "Sushant", "room": "Studio B", "notes": "", "color": "bc-s22"}, {"id": 1726000008000, "batch": "s22", "batchLabel": "Sound 22", "date": "2026-09-19", "time": "9-12", "topic": "Virtual Reality 1", "faculty": "Omkar", "room": "Studio B", "notes": "", "color": "bc-s22"}, {"id": 1726000009000, "batch": "s22", "batchLabel": "Sound 22", "date": "2026-09-22", "time": "9-12", "topic": "MP04 Brief", "faculty": "Kevin", "room": "Classroom", "notes": "", "color": "bc-s22"}, {"id": 1726000010000, "batch": "s22", "batchLabel": "Sound 22", "date": "2026-09-24", "time": "9-12", "topic": "Advanced Macro Workflows 1", "faculty": "Omkar", "room": "Studio B", "notes": "", "color": "bc-s22"}, {"id": 1726000011000, "batch": "s22", "batchLabel": "Sound 22", "date": "2026-09-26", "time": "9-12", "topic": "Advanced Macro Workflows 2", "faculty": "Omkar", "room": "Studio B", "notes": "", "color": "bc-s22"}, {"id": 1726000012000, "batch": "s22", "batchLabel": "Sound 22", "date": "2026-09-29", "time": "9-12", "topic": "Advanced Song Mix (10am-5pm)", "faculty": "Abhishek", "room": "Studio C", "notes": "", "color": "bc-s22"}, {"id": 1726000013000, "batch": "s23", "batchLabel": "Sound 23", "date": "2026-09-02", "time": "9-12", "topic": "MP03 Mix Assessment", "faculty": "Omkar", "room": "Studio C", "notes": "", "color": "bc-s23"}, {"id": 1726000014000, "batch": "s23", "batchLabel": "Sound 23", "date": "2026-09-04", "time": "9-12", "topic": "Completion of 12 Months Diploma - Buffer", "faculty": "", "room": "", "notes": "", "color": "bc-s23"}, {"id": 1726000015000, "batch": "s24", "batchLabel": "Sound 24", "date": "2026-09-01", "time": "9-12", "topic": "PT03 - Audio Post - ADR & Dubmatch - Group 1", "faculty": "Pritish", "room": "Studio B", "notes": "", "color": "bc-s24"}, {"id": 1726000016000, "batch": "s24", "batchLabel": "Sound 24", "date": "2026-09-03", "time": "9-12", "topic": "PT03 - Audio Post - ADR & Dubmatch - Group 2", "faculty": "Pritish", "room": "Studio B", "notes": "", "color": "bc-s24"}, {"id": 1726000017000, "batch": "s24", "batchLabel": "Sound 24", "date": "2026-09-05", "time": "9-12", "topic": "SSL Signal Flow", "faculty": "Anupam", "room": "Studio C", "notes": "", "color": "bc-s24"}, {"id": 1726000018000, "batch": "s24", "batchLabel": "Sound 24", "date": "2026-09-08", "time": "9-12", "topic": "SSL Signal Flow + Patchbay", "faculty": "Anupam", "room": "Studio C", "notes": "", "color": "bc-s24"}, {"id": 1726000019000, "batch": "s24", "batchLabel": "Sound 24", "date": "2026-09-10", "time": "9-12", "topic": "Patchbay + Outboard", "faculty": "Anupam", "room": "Studio C", "notes": "", "color": "bc-s24"}, {"id": 1726000020000, "batch": "s24", "batchLabel": "Sound 24", "date": "2026-09-12", "time": "9-12", "topic": "Studio C - Recording Workflows + Brief", "faculty": "Anupam", "room": "Studio C", "notes": "", "color": "bc-s24"}, {"id": 1726000021000, "batch": "s24", "batchLabel": "Sound 24", "date": "2026-09-15", "time": "9-12", "topic": "Studio C - Group Practice 1", "faculty": "Ankit", "room": "Studio C", "notes": "", "color": "bc-s24"}, {"id": 1726000022000, "batch": "s24", "batchLabel": "Sound 24", "date": "2026-09-17", "time": "9-12", "topic": "Studio C - Group Practice 2", "faculty": "Ankit", "room": "Studio C", "notes": "", "color": "bc-s24"}, {"id": 1726000023000, "batch": "s24", "batchLabel": "Sound 24", "date": "2026-09-19", "time": "9-12", "topic": "MP02 Brief (with DMP) - Song Production", "faculty": "Kevin + Rohan", "room": "Studio C", "notes": "", "color": "bc-s24"}, {"id": 1726000024000, "batch": "s24", "batchLabel": "Sound 24", "date": "2026-09-22", "time": "9-12", "topic": "Studio C - Drum Recording I", "faculty": "Omkar", "room": "Studio C", "notes": "", "color": "bc-s24"}, {"id": 1726000025000, "batch": "s24", "batchLabel": "Sound 24", "date": "2026-09-24", "time": "9-12", "topic": "Studio C - Drum Recording II", "faculty": "Omkar", "room": "Studio C", "notes": "", "color": "bc-s24"}, {"id": 1726000026000, "batch": "s24", "batchLabel": "Sound 24", "date": "2026-09-26", "time": "9-12", "topic": "C - Recording Activity I", "faculty": "Anupam", "room": "Studio C", "notes": "", "color": "bc-s24"}, {"id": 1726000027000, "batch": "s24", "batchLabel": "Sound 24", "date": "2026-09-29", "time": "9-12", "topic": "C - Recording Activity II", "faculty": "Anupam", "room": "Studio C", "notes": "", "color": "bc-s24"}, {"id": 1726000028000, "batch": "s25", "batchLabel": "Sound 25", "date": "2026-09-02", "time": "9-12", "topic": "MP01 - Group 1", "faculty": "PC + Bhomik", "room": "Venue", "notes": "", "color": "bc-s25"}, {"id": 1726000029000, "batch": "s25", "batchLabel": "Sound 25", "date": "2026-09-04", "time": "9-12", "topic": "MP01 - Group 2", "faculty": "PC + Bhomik", "room": "Venue", "notes": "", "color": "bc-s25"}, {"id": 1726000030000, "batch": "s25", "batchLabel": "Sound 25", "date": "2026-09-07", "time": "9-12", "topic": "MP01 - Group 3", "faculty": "PC + Bhomik", "room": "Venue", "notes": "", "color": "bc-s25"}, {"id": 1726000031000, "batch": "s25", "batchLabel": "Sound 25", "date": "2026-09-09", "time": "9-12", "topic": "Ex 1 Rec & Mix (Unsupervised)", "faculty": "Unsupervised", "room": "Studio A", "notes": "", "color": "bc-s25"}, {"id": 1726000032000, "batch": "s25", "batchLabel": "Sound 25", "date": "2026-09-11", "time": "9-12", "topic": "Ex 1 Rec & Mix (Unsupervised)", "faculty": "Unsupervised", "room": "Studio A", "notes": "", "color": "bc-s25"}, {"id": 1726000033000, "batch": "s25", "batchLabel": "Sound 25", "date": "2026-09-14", "time": "9-12", "topic": "Ex 1 Catchup Meet", "faculty": "Pritish + Rohan", "room": "Venue", "notes": "", "color": "bc-s25"}, {"id": 1726000034000, "batch": "s25", "batchLabel": "Sound 25", "date": "2026-09-16", "time": "9-12", "topic": "Ex 1 Rec & Mix (Unsupervised)", "faculty": "Unsupervised", "room": "Studio A", "notes": "", "color": "bc-s25"}, {"id": 1726000035000, "batch": "s25", "batchLabel": "Sound 25", "date": "2026-09-18", "time": "9-12", "topic": "Ex 1 Rec & Mix (Unsupervised)", "faculty": "Unsupervised", "room": "Studio A", "notes": "", "color": "bc-s25"}, {"id": 1726000036000, "batch": "s25", "batchLabel": "Sound 25", "date": "2026-09-21", "time": "9-12", "topic": "Exercise 1 - Submission & Assessment", "faculty": "Kevin + Rohan", "room": "Venue", "notes": "", "color": "bc-s25"}, {"id": 1726000037000, "batch": "s25", "batchLabel": "Sound 25", "date": "2026-09-23", "time": "9-12", "topic": "Protools I (Introduction & Overview)", "faculty": "Pritish", "room": "Classroom", "notes": "", "color": "bc-s25"}, {"id": 1726000038000, "batch": "s25", "batchLabel": "Sound 25", "date": "2026-09-25", "time": "9-12", "topic": "Protools II (Plugins)", "faculty": "Pritish", "room": "Classroom", "notes": "", "color": "bc-s25"}, {"id": 1726000039000, "batch": "s25", "batchLabel": "Sound 25", "date": "2026-09-28", "time": "9-12", "topic": "Protools III (Session Management)", "faculty": "Pritish", "room": "Classroom", "notes": "", "color": "bc-s25"}, {"id": 1726000040000, "batch": "s25", "batchLabel": "Sound 25", "date": "2026-09-30", "time": "9-12", "topic": "Protools Practice I", "faculty": "Ankit", "room": "Classroom", "notes": "", "color": "bc-s25"}, {"id": 1726000041000, "batch": "s26", "batchLabel": "Sound 26", "date": "2026-09-01", "time": "9-12", "topic": "Cubase III (Edits & Automations)", "faculty": "Kevin", "room": "Classroom", "notes": "", "color": "bc-s26"}, {"id": 1726000042000, "batch": "s26", "batchLabel": "Sound 26", "date": "2026-09-03", "time": "9-12", "topic": "Cubase IV (Session Management)", "faculty": "Kevin", "room": "Classroom", "notes": "", "color": "bc-s26"}, {"id": 1726000043000, "batch": "s26", "batchLabel": "Sound 26", "date": "2026-09-05", "time": "9-12", "topic": "Cubase - EQ + Dynamics", "faculty": "Kevin", "room": "Classroom", "notes": "", "color": "bc-s26"}, {"id": 1726000044000, "batch": "s26", "batchLabel": "Sound 26", "date": "2026-09-08", "time": "9-12", "topic": "Cubase - Effects Processors", "faculty": "Kevin", "room": "Classroom", "notes": "", "color": "bc-s26"}, {"id": 1726000045000, "batch": "s26", "batchLabel": "Sound 26", "date": "2026-09-10", "time": "9-12", "topic": "Cubase - Editing", "faculty": "Kevin", "room": "Classroom", "notes": "", "color": "bc-s26"}, {"id": 1726000046000, "batch": "s26", "batchLabel": "Sound 26", "date": "2026-09-12", "time": "9-12", "topic": "Midas Overview", "faculty": "Bhomik", "room": "Studio A", "notes": "", "color": "bc-s26"}, {"id": 1726000047000, "batch": "s26", "batchLabel": "Sound 26", "date": "2026-09-15", "time": "9-12", "topic": "Midas Features", "faculty": "Bhomik", "room": "Studio A", "notes": "", "color": "bc-s26"}, {"id": 1726000048000, "batch": "s26", "batchLabel": "Sound 26", "date": "2026-09-17", "time": "9-12", "topic": "Midas - FX Routing", "faculty": "Bhomik", "room": "Studio A", "notes": "", "color": "bc-s26"}, {"id": 1726000049000, "batch": "s26", "batchLabel": "Sound 26", "date": "2026-09-19", "time": "9-12", "topic": "Cubase Connectivity", "faculty": "Bhomik", "room": "Studio A", "notes": "", "color": "bc-s26"}, {"id": 1726000050000, "batch": "s26", "batchLabel": "Sound 26", "date": "2026-09-22", "time": "9-12", "topic": "Studio A - Group Practice 1", "faculty": "Ankit", "room": "Studio A", "notes": "", "color": "bc-s26"}, {"id": 1726000051000, "batch": "s26", "batchLabel": "Sound 26", "date": "2026-09-24", "time": "9-12", "topic": "Studio A - Group Practice 2", "faculty": "Ankit", "room": "Studio A", "notes": "", "color": "bc-s26"}, {"id": 1726000052000, "batch": "s26", "batchLabel": "Sound 26", "date": "2026-09-26", "time": "9-12", "topic": "WT01 - Audio Fundamentals", "faculty": "Ankit", "room": "Classroom", "notes": "", "color": "bc-s26"}, {"id": 1726000053000, "batch": "s26", "batchLabel": "Sound 26", "date": "2026-09-29", "time": "9-12", "topic": "Microphone Types and Specs", "faculty": "Bhomik", "room": "Classroom", "notes": "", "color": "bc-s26"}, {"id": 1726000054000, "batch": "m22x", "batchLabel": "Music 22X", "date": "2026-09-01", "time": "2-5", "topic": "Synthesis Advanced I", "faculty": "Brij", "room": "Production Lab", "notes": "", "color": "bc-m22"}, {"id": 1726000055000, "batch": "m22x", "batchLabel": "Music 22X", "date": "2026-09-03", "time": "2-5", "topic": "Synthesis Advanced II", "faculty": "Brij", "room": "Production Lab", "notes": "", "color": "bc-m22"}, {"id": 1726000056000, "batch": "m22x", "batchLabel": "Music 22X", "date": "2026-09-05", "time": "2-5", "topic": "Creative Sound Design I", "faculty": "Brij", "room": "Production Lab", "notes": "", "color": "bc-m22"}, {"id": 1726000057000, "batch": "m22x", "batchLabel": "Music 22X", "date": "2026-09-08", "time": "2-5", "topic": "Creative Sound Design II", "faculty": "Brij", "room": "Production Lab", "notes": "", "color": "bc-m22"}, {"id": 1726000058000, "batch": "m22x", "batchLabel": "Music 22X", "date": "2026-09-10", "time": "2-5", "topic": "Arrangement & Production I", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000059000, "batch": "m22x", "batchLabel": "Music 22X", "date": "2026-09-12", "time": "2-5", "topic": "Arrangement & Production II", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000060000, "batch": "m22x", "batchLabel": "Music 22X", "date": "2026-09-15", "time": "2-5", "topic": "Shortfilm Scoring I", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000061000, "batch": "m22x", "batchLabel": "Music 22X", "date": "2026-09-17", "time": "2-5", "topic": "Shortfilm Scoring II", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000062000, "batch": "m22x", "batchLabel": "Music 22X", "date": "2026-09-19", "time": "2-5", "topic": "MP - Song Mix Assessment", "faculty": "JK", "room": "Studio C", "notes": "", "color": "bc-m22"}, {"id": 1726000063000, "batch": "m22x", "batchLabel": "Music 22X", "date": "2026-09-22", "time": "2-5", "topic": "MP - Score Assessment", "faculty": "Rohan", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000064000, "batch": "m22x", "batchLabel": "Music 22X", "date": "2026-09-24", "time": "2-5", "topic": "Advanced Mixing Session I", "faculty": "Pritish", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000065000, "batch": "m22x", "batchLabel": "Music 22X", "date": "2026-09-26", "time": "2-5", "topic": "Advanced Mixing Session II", "faculty": "Pritish", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000066000, "batch": "m22x", "batchLabel": "Music 22X", "date": "2026-09-29", "time": "2-5", "topic": "PA Assessment", "faculty": "Rohan", "room": "Venue", "notes": "", "color": "bc-m22"}, {"id": 1726000067000, "batch": "m22y", "batchLabel": "Music 22Y", "date": "2026-09-01", "time": "6-9", "topic": "Synthesis Advanced I", "faculty": "Brij", "room": "Production Lab", "notes": "", "color": "bc-m22"}, {"id": 1726000068000, "batch": "m22y", "batchLabel": "Music 22Y", "date": "2026-09-03", "time": "6-9", "topic": "Synthesis Advanced II", "faculty": "Brij", "room": "Production Lab", "notes": "", "color": "bc-m22"}, {"id": 1726000069000, "batch": "m22y", "batchLabel": "Music 22Y", "date": "2026-09-05", "time": "6-9", "topic": "Creative Sound Design I", "faculty": "Brij", "room": "Production Lab", "notes": "", "color": "bc-m22"}, {"id": 1726000070000, "batch": "m22y", "batchLabel": "Music 22Y", "date": "2026-09-08", "time": "6-9", "topic": "Creative Sound Design II", "faculty": "Brij", "room": "Production Lab", "notes": "", "color": "bc-m22"}, {"id": 1726000071000, "batch": "m22y", "batchLabel": "Music 22Y", "date": "2026-09-10", "time": "6-9", "topic": "Arrangement & Production I", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000072000, "batch": "m22y", "batchLabel": "Music 22Y", "date": "2026-09-12", "time": "6-9", "topic": "Arrangement & Production II", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000073000, "batch": "m22y", "batchLabel": "Music 22Y", "date": "2026-09-15", "time": "6-9", "topic": "Shortfilm Scoring I", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000074000, "batch": "m22y", "batchLabel": "Music 22Y", "date": "2026-09-17", "time": "6-9", "topic": "Shortfilm Scoring II", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000075000, "batch": "m22y", "batchLabel": "Music 22Y", "date": "2026-09-19", "time": "6-9", "topic": "MP - Song Mix Assessment", "faculty": "JK", "room": "Studio C", "notes": "", "color": "bc-m22"}, {"id": 1726000076000, "batch": "m22y", "batchLabel": "Music 22Y", "date": "2026-09-22", "time": "6-9", "topic": "MP - Score Assessment", "faculty": "Rohan", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000077000, "batch": "m22y", "batchLabel": "Music 22Y", "date": "2026-09-24", "time": "6-9", "topic": "Advanced Mixing Session I", "faculty": "Pritish", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000078000, "batch": "m22y", "batchLabel": "Music 22Y", "date": "2026-09-26", "time": "6-9", "topic": "Advanced Mixing Session II", "faculty": "Pritish", "room": "Studio E", "notes": "", "color": "bc-m22"}, {"id": 1726000079000, "batch": "m22y", "batchLabel": "Music 22Y", "date": "2026-09-29", "time": "6-9", "topic": "PA Assessment", "faculty": "Rohan", "room": "Venue", "notes": "", "color": "bc-m22"}, {"id": 1726000080000, "batch": "m23x", "batchLabel": "Music 23X", "date": "2026-09-02", "time": "2-5", "topic": "Building Progressions from Melody III", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000081000, "batch": "m23x", "batchLabel": "Music 23X", "date": "2026-09-04", "time": "2-5", "topic": "Shortfilm Scoring 6 - Final Mix", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000082000, "batch": "m23x", "batchLabel": "Music 23X", "date": "2026-09-07", "time": "2-5", "topic": "PA04 Assessment", "faculty": "Rohan", "room": "Venue", "notes": "", "color": "bc-m23"}, {"id": 1726000083000, "batch": "m23x", "batchLabel": "Music 23X", "date": "2026-09-09", "time": "2-5", "topic": "Orchestration 5 + MP03 Meet", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000084000, "batch": "m23x", "batchLabel": "Music 23X", "date": "2026-09-11", "time": "2-5", "topic": "Advanced Harmony I", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000085000, "batch": "m23x", "batchLabel": "Music 23X", "date": "2026-09-14", "time": "2-5", "topic": "Advanced Harmony II", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000086000, "batch": "m23x", "batchLabel": "Music 23X", "date": "2026-09-16", "time": "2-5", "topic": "Advanced Synthesis (Serum) I", "faculty": "Brij", "room": "Production Lab", "notes": "", "color": "bc-m23"}, {"id": 1726000087000, "batch": "m23x", "batchLabel": "Music 23X", "date": "2026-09-18", "time": "2-5", "topic": "Advanced Synthesis (Serum) II", "faculty": "Brij", "room": "Production Lab", "notes": "", "color": "bc-m23"}, {"id": 1726000088000, "batch": "m23x", "batchLabel": "Music 23X", "date": "2026-09-21", "time": "2-5", "topic": "WT02 Assessment", "faculty": "Kevin + Rohan", "room": "Venue", "notes": "", "color": "bc-m23"}, {"id": 1726000089000, "batch": "m23x", "batchLabel": "Music 23X", "date": "2026-09-23", "time": "2-5", "topic": "PA05 Brief", "faculty": "Kevin", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000090000, "batch": "m23x", "batchLabel": "Music 23X", "date": "2026-09-25", "time": "2-5", "topic": "Advanced Mix Session", "faculty": "Kevin", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000091000, "batch": "m23y", "batchLabel": "Music 23Y", "date": "2026-09-02", "time": "6-9", "topic": "Building Progressions from Melody III", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000092000, "batch": "m23y", "batchLabel": "Music 23Y", "date": "2026-09-04", "time": "6-9", "topic": "Shortfilm Scoring 6 - Final Mix", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000093000, "batch": "m23y", "batchLabel": "Music 23Y", "date": "2026-09-07", "time": "6-9", "topic": "PA04 Assessment", "faculty": "Rohan", "room": "Venue", "notes": "", "color": "bc-m23"}, {"id": 1726000094000, "batch": "m23y", "batchLabel": "Music 23Y", "date": "2026-09-09", "time": "6-9", "topic": "Orchestration 5 + MP03 Meet", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000095000, "batch": "m23y", "batchLabel": "Music 23Y", "date": "2026-09-11", "time": "6-9", "topic": "Advanced Harmony I", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000096000, "batch": "m23y", "batchLabel": "Music 23Y", "date": "2026-09-14", "time": "6-9", "topic": "Advanced Harmony II", "faculty": "Steve", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000097000, "batch": "m23y", "batchLabel": "Music 23Y", "date": "2026-09-16", "time": "6-9", "topic": "Advanced Synthesis (Serum) I", "faculty": "Brij", "room": "Production Lab", "notes": "", "color": "bc-m23"}, {"id": 1726000098000, "batch": "m23y", "batchLabel": "Music 23Y", "date": "2026-09-18", "time": "6-9", "topic": "Advanced Synthesis (Serum) II", "faculty": "Brij", "room": "Production Lab", "notes": "", "color": "bc-m23"}, {"id": 1726000099000, "batch": "m23y", "batchLabel": "Music 23Y", "date": "2026-09-21", "time": "6-9", "topic": "WT02 Assessment", "faculty": "Kevin + Rohan", "room": "Venue", "notes": "", "color": "bc-m23"}, {"id": 1726000100000, "batch": "m23y", "batchLabel": "Music 23Y", "date": "2026-09-23", "time": "6-9", "topic": "PA05 Brief", "faculty": "Kevin", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000101000, "batch": "m23y", "batchLabel": "Music 23Y", "date": "2026-09-25", "time": "6-9", "topic": "Advanced Mix Session", "faculty": "Kevin", "room": "Studio E", "notes": "", "color": "bc-m23"}, {"id": 1726000102000, "batch": "m24", "batchLabel": "Music 24", "date": "2026-09-01", "time": "2-5", "topic": "Ex02 - Song Production (Unsupervised)", "faculty": "Unsupervised", "room": "Studio E", "notes": "", "color": "bc-m24"}, {"id": 1726000103000, "batch": "m24", "batchLabel": "Music 24", "date": "2026-09-03", "time": "2-5", "topic": "Ex02 - Song Production (Unsupervised)", "faculty": "Unsupervised", "room": "Studio E", "notes": "", "color": "bc-m24"}, {"id": 1726000104000, "batch": "m24", "batchLabel": "Music 24", "date": "2026-09-05", "time": "2-5", "topic": "Ex02 - Song Production (Unsupervised)", "faculty": "Unsupervised", "room": "Studio E", "notes": "", "color": "bc-m24"}, {"id": 1726000105000, "batch": "m24", "batchLabel": "Music 24", "date": "2026-09-08", "time": "2-5", "topic": "Ex02 Catchup Meet", "faculty": "Rohan + Kevin", "room": "Venue", "notes": "", "color": "bc-m24"}, {"id": 1726000106000, "batch": "m24", "batchLabel": "Music 24", "date": "2026-09-10", "time": "2-5", "topic": "MP02 - Song Production Project", "faculty": "Unsupervised", "room": "Studio E", "notes": "", "color": "bc-m24"}, {"id": 1726000107000, "batch": "m24", "batchLabel": "Music 24", "date": "2026-09-12", "time": "2-5", "topic": "MP02 - Song Production Project", "faculty": "Unsupervised", "room": "Studio E", "notes": "", "color": "bc-m24"}, {"id": 1726000108000, "batch": "m24", "batchLabel": "Music 24", "date": "2026-09-15", "time": "2-5", "topic": "MP02 - Song Production Project", "faculty": "Unsupervised", "room": "Studio E", "notes": "", "color": "bc-m24"}, {"id": 1726000109000, "batch": "m24", "batchLabel": "Music 24", "date": "2026-09-17", "time": "2-5", "topic": "MP02 - Song Production Project", "faculty": "Unsupervised", "room": "Studio E", "notes": "", "color": "bc-m24"}, {"id": 1726000110000, "batch": "m24", "batchLabel": "Music 24", "date": "2026-09-19", "time": "2-5", "topic": "MP01 - Day 1", "faculty": "RP + PC", "room": "Venue", "notes": "", "color": "bc-m24"}, {"id": 1726000111000, "batch": "m24", "batchLabel": "Music 24", "date": "2026-09-22", "time": "2-5", "topic": "MP01 - Day 2", "faculty": "RP + PC", "room": "Venue", "notes": "", "color": "bc-m24"}, {"id": 1726000112000, "batch": "m24", "batchLabel": "Music 24", "date": "2026-09-24", "time": "2-5", "topic": "Ex02 - Submission & Assessment", "faculty": "Rohan + Kevin", "room": "Studio C", "notes": "", "color": "bc-m24"}, {"id": 1726000113000, "batch": "m24", "batchLabel": "Music 24", "date": "2026-09-26", "time": "2-5", "topic": "Song Composition and Lyrics Writing", "faculty": "Sanket Sane", "room": "Production Lab", "notes": "", "color": "bc-m24"}, {"id": 1726000114000, "batch": "m24", "batchLabel": "Music 24", "date": "2026-09-29", "time": "2-5", "topic": "Song Arrangement I", "faculty": "Sanket Sane", "room": "Production Lab", "notes": "", "color": "bc-m24"}, {"id": 1726000115000, "batch": "m25", "batchLabel": "Music 25", "date": "2026-09-02", "time": "2-5", "topic": "PT02 - Production in Logic", "faculty": "Rohan", "room": "Production Lab", "notes": "", "color": "bc-m25"}, {"id": 1726000116000, "batch": "m25", "batchLabel": "Music 25", "date": "2026-09-04", "time": "2-5", "topic": "Ex 1 Production (Unsupervised)", "faculty": "Unsupervised", "room": "Studio E", "notes": "", "color": "bc-m25"}, {"id": 1726000117000, "batch": "m25", "batchLabel": "Music 25", "date": "2026-09-07", "time": "2-5", "topic": "Ex 1 Production (Unsupervised)", "faculty": "Unsupervised", "room": "Studio E", "notes": "", "color": "bc-m25"}, {"id": 1726000118000, "batch": "m25", "batchLabel": "Music 25", "date": "2026-09-09", "time": "2-5", "topic": "Ex1 Catchup Meet", "faculty": "Rohan + Kevin", "room": "Venue", "notes": "", "color": "bc-m25"}, {"id": 1726000119000, "batch": "m25", "batchLabel": "Music 25", "date": "2026-09-11", "time": "2-5", "topic": "Ex 1 Production (Unsupervised)", "faculty": "Unsupervised", "room": "Studio E", "notes": "", "color": "bc-m25"}, {"id": 1726000120000, "batch": "m25", "batchLabel": "Music 25", "date": "2026-09-14", "time": "2-5", "topic": "Ex 1 Mixing (Unsupervised)", "faculty": "Unsupervised", "room": "Studio E", "notes": "", "color": "bc-m25"}, {"id": 1726000121000, "batch": "m25", "batchLabel": "Music 25", "date": "2026-09-16", "time": "2-5", "topic": "Ex 1 Mixing (Unsupervised)", "faculty": "Unsupervised", "room": "Studio E", "notes": "", "color": "bc-m25"}, {"id": 1726000122000, "batch": "m25", "batchLabel": "Music 25", "date": "2026-09-18", "time": "2-5", "topic": "Exercise 1 - Submission & Assessment", "faculty": "Rohan + Kevin", "room": "Studio C", "notes": "", "color": "bc-m25"}, {"id": 1726000123000, "batch": "m25", "batchLabel": "Music 25", "date": "2026-09-21", "time": "2-5", "topic": "Song Composition and Lyrics Writing", "faculty": "Sanket Sane", "room": "Production Lab", "notes": "", "color": "bc-m25"}, {"id": 1726000124000, "batch": "m25", "batchLabel": "Music 25", "date": "2026-09-23", "time": "2-5", "topic": "Song Arrangement I", "faculty": "Sanket Sane", "room": "Production Lab", "notes": "", "color": "bc-m25"}, {"id": 1726000125000, "batch": "m25", "batchLabel": "Music 25", "date": "2026-09-25", "time": "2-5", "topic": "Song Arrangement II", "faculty": "Sanket Sane", "room": "Production Lab", "notes": "", "color": "bc-m25"}, {"id": 1726000126000, "batch": "m25", "batchLabel": "Music 25", "date": "2026-09-28", "time": "2-5", "topic": "Harmonic Ear Training - Note Relation", "faculty": "Steve", "room": "Venue", "notes": "", "color": "bc-m25"}, {"id": 1726000127000, "batch": "m25", "batchLabel": "Music 25", "date": "2026-09-30", "time": "2-5", "topic": "Harmonic Ear Training - Building Progressions", "faculty": "Steve", "room": "Venue", "notes": "", "color": "bc-m25"}, {"id": 1726000128000, "batch": "m26", "batchLabel": "Music 26", "date": "2026-09-01", "time": "2-5", "topic": "Logic 3 (MIDI Fundamentals)", "faculty": "Jash", "room": "Classroom", "notes": "", "color": "bc-m26"}, {"id": 1726000129000, "batch": "m26", "batchLabel": "Music 26", "date": "2026-09-03", "time": "2-5", "topic": "Logic 4 (Advanced MIDI)", "faculty": "Jash", "room": "Classroom", "notes": "", "color": "bc-m26"}, {"id": 1726000130000, "batch": "m26", "batchLabel": "Music 26", "date": "2026-09-05", "time": "2-5", "topic": "Logic 5 (Modulations and Audio Editing)", "faculty": "Jash", "room": "Classroom", "notes": "", "color": "bc-m26"}, {"id": 1726000131000, "batch": "m26", "batchLabel": "Music 26", "date": "2026-09-08", "time": "2-5", "topic": "Logic 6 (Song Creation)", "faculty": "Jash", "room": "Classroom", "notes": "", "color": "bc-m26"}, {"id": 1726000132000, "batch": "m26", "batchLabel": "Music 26", "date": "2026-09-10", "time": "2-5", "topic": "Logic 7 (Exports, Summary & Class Exercise)", "faculty": "Jash", "room": "Classroom", "notes": "", "color": "bc-m26"}, {"id": 1726000133000, "batch": "m26", "batchLabel": "Music 26", "date": "2026-09-12", "time": "2-5", "topic": "Signal Processors in Logic 1", "faculty": "Kevin", "room": "Venue", "notes": "", "color": "bc-m26"}, {"id": 1726000134000, "batch": "m26", "batchLabel": "Music 26", "date": "2026-09-15", "time": "2-5", "topic": "Signal Processors in Logic 2", "faculty": "Kevin", "room": "Venue", "notes": "", "color": "bc-m26"}, {"id": 1726000135000, "batch": "m26", "batchLabel": "Music 26", "date": "2026-09-17", "time": "2-5", "topic": "Signal Processors in Logic 3", "faculty": "Kevin", "room": "Venue", "notes": "", "color": "bc-m26"}, {"id": 1726000136000, "batch": "m26", "batchLabel": "Music 26", "date": "2026-09-19", "time": "2-5", "topic": "Signal Processors in Logic 4", "faculty": "Kevin", "room": "Venue", "notes": "", "color": "bc-m26"}, {"id": 1726000137000, "batch": "m26", "batchLabel": "Music 26", "date": "2026-09-22", "time": "2-5", "topic": "Western Rhythm - Intermediate", "faculty": "Niranjan", "room": "Classroom", "notes": "", "color": "bc-m26"}, {"id": 1726000138000, "batch": "m26", "batchLabel": "Music 26", "date": "2026-09-24", "time": "2-5", "topic": "Western Melody - Intermediate I", "faculty": "Niranjan", "room": "Classroom", "notes": "", "color": "bc-m26"}, {"id": 1726000139000, "batch": "m26", "batchLabel": "Music 26", "date": "2026-09-26", "time": "2-5", "topic": "Western Melody - Intermediate II", "faculty": "Niranjan", "room": "Classroom", "notes": "", "color": "bc-m26"}, {"id": 1726000140000, "batch": "m26", "batchLabel": "Music 26", "date": "2026-09-29", "time": "2-5", "topic": "Indian Rhythm I", "faculty": "Anupam", "room": "Venue", "notes": "", "color": "bc-m26"}, {"id": 1726000141000, "batch": "cls08", "batchLabel": "CLS 08", "date": "2026-09-02", "time": "6-9", "topic": "Miking Techniques", "faculty": "Siddharth", "room": "Studio A", "notes": "", "color": "bc-cls"}, {"id": 1726000142000, "batch": "cls08", "batchLabel": "CLS 08", "date": "2026-09-04", "time": "6-9", "topic": "Recording Workflow", "faculty": "Siddharth", "room": "Studio A", "notes": "", "color": "bc-cls"}, {"id": 1726000143000, "batch": "cls08", "batchLabel": "CLS 08", "date": "2026-09-07", "time": "6-9", "topic": "Mono Miking Practical", "faculty": "Siddharth", "room": "Studio A", "notes": "", "color": "bc-cls"}, {"id": 1726000144000, "batch": "cls08", "batchLabel": "CLS 08", "date": "2026-09-09", "time": "6-9", "topic": "Stereo Miking Practical", "faculty": "Siddharth", "room": "Studio A", "notes": "", "color": "bc-cls"}, {"id": 1726000145000, "batch": "cls08", "batchLabel": "CLS 08", "date": "2026-09-11", "time": "6-9", "topic": "Ear Training I", "faculty": "JK", "room": "Studio C", "notes": "", "color": "bc-cls"}, {"id": 1726000146000, "batch": "cls08", "batchLabel": "CLS 08", "date": "2026-09-14", "time": "6-9", "topic": "Ear Training II", "faculty": "JK", "room": "Studio C", "notes": "", "color": "bc-cls"}, {"id": 1726000147000, "batch": "cls08", "batchLabel": "CLS 08", "date": "2026-09-16", "time": "6-9", "topic": "Mixing on Cubase I", "faculty": "Anupam", "room": "Studio A", "notes": "", "color": "bc-cls"}, {"id": 1726000148000, "batch": "cls08", "batchLabel": "CLS 08", "date": "2026-09-18", "time": "6-9", "topic": "Mixing on Cubase II", "faculty": "Anupam", "room": "Studio A", "notes": "", "color": "bc-cls"}, {"id": 1726000149000, "batch": "cls08", "batchLabel": "CLS 08", "date": "2026-09-21", "time": "6-9", "topic": "Cubase Mastering + Exports", "faculty": "Anupam", "room": "Studio A", "notes": "", "color": "bc-cls"}, {"id": 1726000150000, "batch": "cls08", "batchLabel": "CLS 08", "date": "2026-09-23", "time": "6-9", "topic": "WT01 - Audio Fundamentals", "faculty": "Ankit", "room": "Classroom", "notes": "", "color": "bc-cls"}, {"id": 1726000151000, "batch": "cls08", "batchLabel": "CLS 08", "date": "2026-09-25", "time": "6-9", "topic": "MP01 Audience Day 1", "faculty": "Unsupervised", "room": "Venue", "notes": "", "color": "bc-cls"}, {"id": 1726000152000, "batch": "cls08", "batchLabel": "CLS 08", "date": "2026-09-28", "time": "6-9", "topic": "MP01 Audience Day 2", "faculty": "Unsupervised", "room": "Venue", "notes": "", "color": "bc-cls"}, {"id": 1726000153000, "batch": "cls08", "batchLabel": "CLS 08", "date": "2026-09-30", "time": "6-9", "topic": "Protools I", "faculty": "Pritish", "room": "Classroom", "notes": "", "color": "bc-cls"}];
+
+const BI={
+  s22:{label:'Sound 22',color:'bc-s22',time:'9-12'},
+  s23:{label:'Sound 23',color:'bc-s23',time:'9-12'},
+  s24:{label:'Sound 24',color:'bc-s24',time:'9-12'},
+  s25:{label:'Sound 25',color:'bc-s25',time:'9-12'},
+  s26:{label:'Sound 26',color:'bc-s26',time:'9-12'},
+  m22x:{label:'Music 22X',color:'bc-m22',time:'2-5'},
+  m22y:{label:'Music 22Y',color:'bc-m22',time:'6-9'},
+  m23x:{label:'Music 23X',color:'bc-m23',time:'2-5'},
+  m23y:{label:'Music 23Y',color:'bc-m23',time:'6-9'},
+  m24:{label:'Music 24',color:'bc-m24',time:'2-5'},
+  m25:{label:'Music 25',color:'bc-m25',time:'2-5'},
+  m26:{label:'Music 26',color:'bc-m26',time:'2-5'},
+  cls08:{label:'CLS 08',color:'bc-cls',time:'6-9'},
+};
+const SLOTS=[{k:'9-12',l:'9 AM - 12 PM'},{k:'2-5',l:'2 PM - 5 PM'},{k:'6-9',l:'6 PM - 9 PM'}];
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const HOL={'2026-09-06':'Ganesh Chaturthi'};
+
+var sessions=[], activeId=null, activeFilter='All';
+var weekStart=wkStart(new Date('2026-09-01T00:00:00'));
+
+function wkStart(d){var dt=new Date(d),day=dt.getDay();dt.setDate(dt.getDate()-(day===0?6:day-1));dt.setHours(0,0,0,0);return dt;}
+function addD(d,n){var dt=new Date(d);dt.setDate(dt.getDate()+n);return dt;}
+function fd(d){return d.toISOString().split('T')[0];}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function setSync(state,lbl){
+  var d=document.getElementById('dot');
+  d.className='dot'+(state==='ok'?' ok':state==='syn'?' syn':state==='err'?' err':'');
+  document.getElementById('sync-lbl').textContent=lbl;
+}
+
+async function api(body){
+  setSync('syn','Syncing...');
+  var r=await fetch(API,{method:'POST',body:JSON.stringify(body)});
+  var j=await r.json();
+  if(!j.ok) throw new Error(j.error||'API error');
+  setSync('ok','Synced');
+  return j.data;
+}
+
+function mapS(s){
+  var b=String(s.batch||'').toLowerCase();
+  var bi=BI[b]||{};
+  var t=String(s.time||'').trim();
+  if(!['9-12','2-5','6-9'].includes(t)) t=bi.time||'9-12';
+  return {id:s.id,batch:b,batchLabel:bi.label||s.batchLabel||b,
+    date:String(s.date).split('T')[0],time:t,
+    topic:s.topic,faculty:s.faculty,room:s.room,
+    notes:s.notes||'',color:bi.color||'bc-s23'};
+}
+
+async function loadData(){
+  setSync('syn','Loading...');
+  try {
+    await api({action:'init'});
+    var data=await api({action:'getAll'});
+    if(data.sessions&&data.sessions.length>0){
+      sessions=data.sessions.map(mapS);
+      setSync('ok','Synced - '+sessions.length+' sessions');
+    } else {
+      setSync('syn','Importing September...');
+      for(var i=0;i<SEP_DATA.length;i+=50){
+        await api({action:'bulkImport',sessions:SEP_DATA.slice(i,i+50)});
+      }
+      var data2=await api({action:'getAll'});
+      sessions=data2.sessions.map(mapS);
+      setSync('ok','Loaded '+sessions.length+' sessions');
+    }
+    render();
+  } catch(e){
+    setSync('err',e.message);
+    console.error(e);
+  }
+}
+
+function render(){
+  updateStats();
+  renderFilters();
+  renderTable();
+  updateClashBadge();
+}
+
+function updateStats(){
+  document.getElementById('st-total').textContent=sessions.length;
+  document.getElementById('st-batches').textContent=new Set(sessions.map(s=>s.batch)).size;
+}
+
+function renderFilters(){
+  var batches=[...new Set(sessions.map(s=>s.batch))].sort();
+  var f=document.getElementById('filters');
+  f.innerHTML='';
+  ['All',...batches].forEach(function(b){
+    var c=document.createElement('button');
+    c.className='chip'+(activeFilter===b?' on':'');
+    c.textContent=b==='All'?'All':(BI[b]&&BI[b].label?BI[b].label:b);
+    c.onclick=function(){activeFilter=b;renderTable();};
+    f.appendChild(c);
+  });
+}
+
+function renderTable(){
+  var days=Array.from({length:7},(_,i)=>addD(weekStart,i));
+  var today=fd(new Date());
+  document.getElementById('week-title').textContent=weekStart.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+  document.getElementById('week-sub').textContent=days[0].toLocaleDateString('en-IN',{day:'numeric',month:'short'})+' - '+days[6].toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+
+  var tbl=document.getElementById('tbl');
+  tbl.innerHTML='';
+
+  // Header
+  var thead=document.createElement('thead');
+  var hr=document.createElement('tr');
+  days.forEach(function(day,i){
+    var th=document.createElement('th');
+    var ds=fd(day);
+    var isToday=ds===today;
+    th.className=isToday?'today-h':'';
+    th.innerHTML='<div style="font-size:16px;font-weight:700;color:'+(isToday?'var(--acc)':'var(--tx)')+';">'+day.getDate()+'</div><div>'+DAYS[i]+'</div>';
+    hr.appendChild(th);
+  });
+  thead.appendChild(hr);
+  tbl.appendChild(thead);
+
+  var tbody=document.createElement('tbody');
+
+  // Holiday row if needed
+  if(days.some(d=>HOL[fd(d)])){
+    var hr2=document.createElement('tr');
+    days.forEach(function(day){
+      var td=document.createElement('td');
+      var h=HOL[fd(day)];
+      if(h){td.className='holiday-cell';td.textContent=h;}
+      hr2.appendChild(td);
+    });
+    tbody.appendChild(hr2);
+  }
+
+  // 3 slot sections
+  SLOTS.forEach(function(slot){
+    // Label row
+    var lr=document.createElement('tr');
+    lr.className='slot-head';
+    for(var i=0;i<7;i++){
+      var td=document.createElement('td');
+      td.textContent=slot.l;
+      lr.appendChild(td);
+    }
+    tbody.appendChild(lr);
+
+    // Sessions row
+    var sr=document.createElement('tr');
+    days.forEach(function(day){
+      var td=document.createElement('td');
+      var ds=fd(day);
+      var list=sessions.filter(function(s){
+        return s.date===ds&&s.time===slot.k&&(activeFilter==='All'||s.batch===activeFilter);
+      });
+      if(!list.length){
+        td.innerHTML='<div class="empty-cell">-</div>';
+      } else {
+        list.forEach(function(s){
+          var clash=hasClash(s);
+          var card=document.createElement('div');
+          card.className='card '+s.color+(clash?' sc-clash':'');
+          card.innerHTML='<div class="c-batch">'+s.batchLabel+'</div>'+
+            '<div class="c-topic">'+esc(s.topic)+'</div>'+
+            '<div class="c-meta">'+esc(s.faculty)+' - '+esc(s.room)+'</div>';
+          card.onclick=function(){openDetail(s.id);};
+          td.appendChild(card);
+        });
+      }
+      sr.appendChild(td);
+    });
+    tbody.appendChild(sr);
+  });
+
+  tbl.appendChild(tbody);
+}
+
+function hasClash(s){
+  return sessions.some(function(o){
+    return o.id!==s.id&&o.date===s.date&&o.time===s.time&&
+      (o.room===s.room||(o.faculty===s.faculty&&s.faculty!=='Unsupervised'));
+  });
+}
+
+function updateClashBadge(){
+  var n=Math.ceil(sessions.filter(hasClash).length/2);
+  var b=document.getElementById('clash-badge');
+  if(n>0){b.className='clash-badge on';document.getElementById('clash-count').textContent=n;}
+  else b.className='clash-badge';
+}
+
+function prevWeek(){weekStart=addD(weekStart,-7);renderTable();}
+function nextWeek(){weekStart=addD(weekStart,7);renderTable();}
+
+function openDetail(id){
+  var s=sessions.find(x=>x.id==id);
+  if(!s) return;
+  activeId=id;
+  document.getElementById('dm-title').textContent=s.topic;
+  document.getElementById('dm-sub').textContent=s.batchLabel+' - '+s.date;
+  var clash=hasClash(s);
+  document.getElementById('dm-body').innerHTML=
+    '<div class="dr"><div class="dl">Batch</div><div class="dv" style="color:var(--acc);font-weight:600;">'+s.batchLabel+'</div></div>'+
+    '<div class="dr"><div class="dl">Date</div><div class="dv">'+s.date+'</div></div>'+
+    '<div class="dr"><div class="dl">Time</div><div class="dv">'+s.time+'</div></div>'+
+    '<div class="dr"><div class="dl">Faculty</div><div class="dv">'+esc(s.faculty)+'</div></div>'+
+    '<div class="dr"><div class="dl">Room</div><div class="dv">'+esc(s.room)+'</div></div>'+
+    (clash?'<div class="clash-warn">This session has a clash</div>':'');
+  document.getElementById('modal').className='overlay open';
+}
+
+function closeMod(){document.getElementById('modal').className='overlay';}
+
+async function delSess(){
+  if(!confirm('Delete this session?')) return;
+  try{
+    await api({action:'deleteSession',id:activeId});
+    sessions=sessions.filter(s=>s.id!=activeId);
+    closeMod();render();toast('Deleted');
+  }catch(e){toast('Error: '+e.message);}
+}
+
+function chkClash(){
+  var date=document.getElementById('f-date').value;
+  var time=document.getElementById('f-time').value;
+  var fac=document.getElementById('f-fac').value;
+  var room=document.getElementById('f-room').value;
+  var ci=document.getElementById('clash-info');
+  if(!date||!room){ci.className='clash-info';return;}
+  var clashes=[];
+  sessions.forEach(function(s){
+    if(s.date!==date||s.time!==time) return;
+    if(room&&s.room===room) clashes.push(room+' booked by '+s.batchLabel);
+    if(fac&&fac!=='Unsupervised'&&s.faculty===fac) clashes.push(fac+' teaching '+s.batchLabel);
+  });
+  if(clashes.length){ci.className='clash-info warn';ci.textContent=clashes[0];}
+  else{ci.className='clash-info ok';ci.textContent='No clash';}
+}
+
+function onBatch(){
+  var b=document.getElementById('f-batch').value;
+  if(BI[b]) document.getElementById('f-time').value=BI[b].time;
+}
+
+function openAdd(){document.getElementById('f-date').value=fd(weekStart);}
+
+async function addSess(){
+  var batch=document.getElementById('f-batch').value;
+  var date=document.getElementById('f-date').value;
+  var time=document.getElementById('f-time').value;
+  var topic=document.getElementById('f-topic').value.trim();
+  var fac=document.getElementById('f-fac').value;
+  var room=document.getElementById('f-room').value;
+  if(!batch||!date||!topic||!fac||!room){toast('Fill all fields');return;}
+  var bi=BI[batch]||{};
+  var sess={id:Date.now(),batch:batch,batchLabel:bi.label||batch,
+    date:date,time:time,topic:topic,faculty:fac,room:room,notes:'',color:bi.color||'bc-s23'};
+  try{
+    await api({action:'saveSession',session:sess});
+    sessions.push(sess);render();toast('Saved');
+    document.getElementById('f-topic').value='';
+  }catch(e){toast('Error: '+e.message);}
+}
+
+function toast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show';
+  setTimeout(function(){t.className='toast';},2500);
+}
+
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeMod();});
+document.getElementById('f-date').value=fd(new Date('2026-09-01T00:00:00'));
+
+loadData();
+</script>
+</body>
+</html>
