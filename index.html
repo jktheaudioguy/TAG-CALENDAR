@@ -217,11 +217,30 @@ function setSync(state,lbl){
 
 async function api(body){
   setSync('syn','Syncing...');
-  var r=await fetch(API,{method:'POST',body:JSON.stringify(body)});
-  var j=await r.json();
-  if(!j.ok) throw new Error(j.error||'API error');
+  // Use GET with encoded body for CORS compatibility with Apps Script
+  var params = Object.keys(body).map(function(k){
+    return encodeURIComponent(k)+'='+encodeURIComponent(
+      typeof body[k]==='object' ? JSON.stringify(body[k]) : body[k]
+    );
+  }).join('&');
+  var url = API + '?' + params;
+  var r = await fetch(url, {
+    method:'GET',
+    redirect:'follow',
+  });
+  var text = await r.text();
+  // Apps Script may wrap in callback or return plain JSON
+  var json;
+  try { json = JSON.parse(text); }
+  catch(e) {
+    // Try to extract JSON from possible HTML wrapper
+    var match = text.match(/\{.*\}/s);
+    if(match) json = JSON.parse(match[0]);
+    else throw new Error('Invalid response: '+text.substring(0,100));
+  }
+  if(!json.ok) throw new Error(json.error||'API error');
   setSync('ok','Synced');
-  return j.data;
+  return json.data;
 }
 
 function mapS(s){
