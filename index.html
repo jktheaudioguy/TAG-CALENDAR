@@ -83,6 +83,52 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);min-height:100
 .toast.show{opacity:1;}
 .clash-badge{display:none;background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;}
 .clash-badge.on{display:inline-flex;align-items:center;gap:4px;}
+
+/* ===== MOBILE ===== */
+@media (max-width: 768px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+  .side { display: none; }
+  .main { padding: 0.75rem; }
+  .week-nav { margin-bottom: 0.75rem; }
+  .week-title { font-size: 15px; }
+  .week-sub { font-size: 11px; }
+  .filters { gap: 4px; margin-bottom: 0.75rem; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+  .filters::-webkit-scrollbar { display: none; }
+  .chip { flex-shrink: 0; font-size: 10px; padding: 3px 8px; }
+
+  /* Hide weekly table on mobile */
+  #tbl { display: none; }
+
+  /* Mobile day view */
+  .mobile-view { display: block; }
+  .day-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; background: var(--sur); border-radius: 8px; padding: 10px 14px; }
+  .day-nav-btn { background: none; border: 1px solid var(--bor); border-radius: 6px; color: var(--tx2); padding: 6px 12px; font-size: 13px; cursor: pointer; }
+  .day-nav-btn:hover { background: var(--sur2); }
+  .day-title { text-align: center; }
+  .day-title-date { font-size: 22px; font-weight: 700; color: var(--tx); line-height: 1.1; }
+  .day-title-name { font-size: 12px; color: var(--tx2); margin-top: 2px; }
+  .day-title-today { color: var(--acc); }
+  .mobile-slot { margin-bottom: 12px; }
+  .mobile-slot-label { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--tx2); padding: 6px 10px; background: var(--sur2); border-radius: 6px 6px 0 0; border-top: 2px solid var(--bor2); }
+  .mobile-slot-cards { background: var(--sur); border: 1px solid var(--bor); border-top: none; border-radius: 0 0 6px 6px; padding: 6px; }
+  .mobile-slot-empty { padding: 10px; text-align: center; color: var(--tx3); font-size: 12px; }
+  .mobile-card { border-radius: 6px; padding: 10px 12px; margin-bottom: 6px; border-left: 3px solid transparent; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; }
+  .mobile-card:last-child { margin-bottom: 0; }
+  .mobile-card-left { flex: 1; }
+  .mobile-card-batch { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 3px; }
+  .mobile-card-topic { font-size: 13px; font-weight: 500; line-height: 1.35; margin-bottom: 4px; }
+  .mobile-card-meta { font-size: 11px; color: var(--tx2); }
+  .mobile-card-clash { color: var(--red); font-size: 11px; font-weight: 600; padding-left: 8px; flex-shrink: 0; }
+  .mobile-add-btn { position: fixed; bottom: 1.5rem; right: 1.5rem; width: 52px; height: 52px; border-radius: 50%; background: var(--acc); color: #0e0e0c; border: none; font-size: 26px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(0,0,0,.3); z-index: 100; font-weight: 700; line-height: 1; }
+  .topbar { padding: 0 1rem; height: 48px; }
+  .brand-pill { font-size: 10px; padding: 2px 6px; }
+  .brand { font-size: 13px; }
+  .clash-badge { font-size: 10px; padding: 2px 7px; }
+}
+@media (min-width: 769px) {
+  .mobile-view { display: none; }
+  .mobile-add-btn { display: none; }
+}
 </style>
 </head>
 <body>
@@ -165,6 +211,20 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);min-height:100
     </div>
     <div class="filters" id="filters"></div>
     <div style="overflow-x:auto;"><table class="tbl" id="tbl"></table></div>
+  <!-- MOBILE DAY VIEW -->
+  <div class="mobile-view" id="mobile-view">
+    <div class="day-nav">
+      <button class="day-nav-btn" onclick="mPrev()">&#8592;</button>
+      <div class="day-title" id="mobile-day-title">
+        <div class="day-title-date" id="m-date">1</div>
+        <div class="day-title-name" id="m-day">Monday</div>
+      </div>
+      <button class="day-nav-btn" onclick="mNext()">&#8594;</button>
+    </div>
+    <div id="mobile-slots"></div>
+  </div>
+  <button class="mobile-add-btn" onclick="mOpenAdd()">+</button>
+
   </main>
 </div>
 <div class="overlay" id="modal">
@@ -479,6 +539,132 @@ document.getElementById('modal').addEventListener('click',function(e){if(e.targe
 document.getElementById('f-date').value=fd(new Date('2026-09-01T00:00:00'));
 
 loadData();
+
+// ===== MOBILE =====
+var mCurrentDate = new Date('2026-09-01T00:00:00');
+
+function isMobile() { return window.innerWidth <= 768; }
+
+function mPrev() {
+  mCurrentDate = addD(mCurrentDate, -1);
+  // Skip Sunday
+  if (mCurrentDate.getDay() === 0) mCurrentDate = addD(mCurrentDate, -1);
+  renderMobile();
+}
+
+function mNext() {
+  mCurrentDate = addD(mCurrentDate, 1);
+  // Skip Sunday
+  if (mCurrentDate.getDay() === 0) mCurrentDate = addD(mCurrentDate, 1);
+  renderMobile();
+}
+
+function mOpenAdd() {
+  document.getElementById('f-date').value = fd(mCurrentDate);
+  // Show a simple mobile add modal
+  document.getElementById('modal').className = 'overlay open';
+}
+
+function renderMobile() {
+  var ds = fd(mCurrentDate);
+  var today = fd(new Date());
+  var isToday = ds === today;
+  var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var fullDays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  document.getElementById('m-date').textContent = mCurrentDate.getDate();
+  document.getElementById('m-date').className = 'day-title-date' + (isToday ? ' day-title-today' : '');
+  document.getElementById('m-day').textContent = fullDays[mCurrentDate.getDay()] + ', ' +
+    mCurrentDate.toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'});
+
+  var SLOTS = [{k:'9-12',l:'9 AM – 12 PM'},{k:'2-5',l:'2 PM – 5 PM'},{k:'6-9',l:'6 PM – 9 PM'}];
+  var container = document.getElementById('mobile-slots');
+  container.innerHTML = '';
+
+  // Holiday check
+  var hol = HOL[ds];
+  if (hol) {
+    var hDiv = document.createElement('div');
+    hDiv.style.cssText = 'background:rgba(240,160,32,.1);border:1px solid rgba(240,160,32,.3);border-radius:8px;padding:12px;text-align:center;font-size:13px;color:var(--amb);font-weight:600;margin-bottom:12px;';
+    hDiv.textContent = hol;
+    container.appendChild(hDiv);
+  }
+
+  var totalDay = 0;
+  SLOTS.forEach(function(slot) {
+    var daySessions = sessions.filter(function(s) {
+      return s.date === ds && s.time === slot.k &&
+        (activeFilter === 'All' || s.batch === activeFilter);
+    });
+
+    var slotDiv = document.createElement('div');
+    slotDiv.className = 'mobile-slot';
+
+    var label = document.createElement('div');
+    label.className = 'mobile-slot-label';
+    label.textContent = slot.l;
+    slotDiv.appendChild(label);
+
+    var cardsDiv = document.createElement('div');
+    cardsDiv.className = 'mobile-slot-cards';
+
+    if (!daySessions.length) {
+      cardsDiv.innerHTML = '<div class="mobile-slot-empty">No classes</div>';
+    } else {
+      daySessions.forEach(function(s) {
+        var clash = hasClash(s);
+        var card = document.createElement('div');
+        card.className = 'mobile-card ' + s.color;
+        card.innerHTML =
+          '<div class="mobile-card-left">' +
+            '<div class="mobile-card-batch">' + s.batchLabel + '</div>' +
+            '<div class="mobile-card-topic">' + esc(s.topic) + '</div>' +
+            '<div class="mobile-card-meta">' + esc(s.faculty) + ' &middot; ' + esc(s.room) + '</div>' +
+          '</div>' +
+          (clash ? '<div class="mobile-card-clash">&#9888;</div>' : '');
+        card.onclick = function() { openDetail(s.id); };
+        cardsDiv.appendChild(card);
+        totalDay++;
+      });
+    }
+    slotDiv.appendChild(cardsDiv);
+    container.appendChild(slotDiv);
+  });
+
+  // Day summary
+  if (totalDay > 0) {
+    var summary = document.createElement('div');
+    summary.style.cssText = 'text-align:center;font-size:11px;color:var(--tx3);margin-top:4px;';
+    summary.textContent = totalDay + ' session' + (totalDay > 1 ? 's' : '') + ' today';
+    container.appendChild(summary);
+  }
+}
+
+// Override render to also update mobile
+var _origRender = render;
+function render() {
+  _origRender();
+  if (isMobile()) renderMobile();
+}
+
+// Swipe support for mobile
+(function() {
+  var startX = 0;
+  var mv = document.getElementById('mobile-view');
+  if (!mv) return;
+  mv.addEventListener('touchstart', function(e) { startX = e.touches[0].clientX; }, {passive:true});
+  mv.addEventListener('touchend', function(e) {
+    var diff = startX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) mNext(); else mPrev();
+    }
+  }, {passive:true});
+})();
+
+window.addEventListener('resize', function() {
+  if (isMobile()) renderMobile();
+});
+
 </script>
 </body>
 </html>
